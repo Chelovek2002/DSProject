@@ -7,68 +7,68 @@ import seaborn as sns
 
 sns.set_style("ticks")
 
-wage_df = pd.read_csv('data_cleaned_2021.csv')
+wage_df = pd.read_csv('data_cleaned_2021.csv').drop(columns='index').drop_duplicates()
+rename_dict = {'seniority_by_title': 'seniority', 'Avg Salary(K)': "avg_salary"}
 columns_to_drop = [
-    "index",
     "Job Title",
     "Job Description",
     "Salary Estimate",
     "Company Name",
-    "Location",
     "Headquarters",
     "Employer provided",
     "Founded",
     "Job Location",
     "Hourly",
-    "Competitors"
+    "Competitors",
+    "Type of ownership",
+    "Lower Salary",
+    "Upper Salary",
+    'Age'
 ]
-rename_dict = {"Type of ownership": "own_type",
-               'seniority_by_title': 'seniority',
-               "Avg Salary(K)": "avg_salary"}
 wage_df = wage_df.drop(columns=columns_to_drop).rename(columns=rename_dict)
-
-init_own = ['Company - Private',
-            'Company - Public',
-            'Nonprofit Organization',
-            'Other Organization',
-            'School / School District']
-new_own = [
-    'Private',
-    'Public',
-    'Nonprofit',
-    'Other',
-    'School'
-]
-wage_df.own_type.replace(init_own, new_own, inplace=True)
-skills = ['Python', 'spark', 'aws', 'excel', 'sql', 'sas', 'keras', 'pytorch',
+wage_df.columns = wage_df.columns.str.lower()
+skills = ['python', 'spark', 'aws', 'excel', 'sql', 'sas', 'keras', 'pytorch',
           'scikit', 'tensor', 'hadoop', 'tableau', 'bi', 'flink', 'mongo',
           'google_an']
-companies_info = ["own_type", "Industry", "Sector", "Revenue", ]
-people_info = ['job_title_sim', 'Degree', 'seniority']
-salaries = ["Lower Salary", "Upper Salary", "avg_salary"]
 wage_df = wage_df.assign(skill_num=lambda x: sum([x[a] for a in skills]))
+wage_df.seniority.replace(['na', 'jr', 'sr'], ['Not Available', 'Junior', 'Senior'], inplace=True)
+# wage_df.degree.replace()
 
 
-# correlation between wage and degree for different seniority
+# function to aggregate sectors and industries
+def df_aggregate_by(param):
+    param_agg = (wage_df.groupby(param)
+                 .mean()
+                 .drop(columns=['rating', 'skill_num', 'avg_salary'])
+                 .reset_index()
+                 )
+    return param_agg.melt(id_vars=param)
+
+
+industry_agg = df_aggregate_by('industry')
+sector_agg = df_aggregate_by('sector')
+
+
+# correlation between wage and degree for various seniority
 def show_wage_degree_corr():
     sns.catplot(data=wage_df,
-                x='Degree',
+                x='degree',
                 y='avg_salary',
                 hue='seniority',
                 kind='box',
                 order=['na', 'M', 'P'],
-                hue_order=['jr', 'na', 'sr'])
+                hue_order=['Junior', 'Not Available', 'Senior'])
     plt.xticks(rotation=45)
     plt.show()
 
 
-# correlation between wage and skills for different seniority
+# correlation between wage and skills for various seniority
 def show_wage_skills_corr():
     sns.catplot(data=wage_df,
                 x='skill_num',
                 y='avg_salary',
                 hue='seniority',
-                hue_order=['jr', 'na', 'sr'],
+                hue_order=['Junior', 'Not Available', 'Senior'],
                 kind='point',
                 scale=0.9
                 )
@@ -76,33 +76,30 @@ def show_wage_skills_corr():
     plt.show()
 
 
-industry_agg = wage_df.groupby("Industry").mean().drop(columns=['Age', 'Rating', 'skill_num'] + salaries).reset_index()
-industry_agg = industry_agg.melt(id_vars='Industry')
-
-
 # set of common skills in an industry
 def industry_skill(industry):
     sns.barplot(
-        data=industry_agg[industry_agg.Industry == industry],
+        data=industry_agg[industry_agg.industry == industry],
         y='value',
-        x='variable')
+        x='variable').set(ylabel=f'Частота использования в {industry}')
     plt.xticks(rotation=45)
     plt.show()
 
 
-# industry_skill('Advertising & Marketing')
-
-
-# correlation between wage and average over industry
-ind_mean = wage_df.groupby('Industry').agg({'Industry': 'size', 'avg_salary': 'mean'})
-ind_mean['Industry_name'] = ind_mean.index
-
-
-def industry_salary():
-    sns.scatterplot(data=wage_df,
-                    x='Industry',
-                    y='avg_salary',
-                    hue='seniority')
+# set of common skills in a sector
+def sector_skill(sector):
+    sns.barplot(
+        data=sector_agg[sector_agg.sector == sector],
+        y='value',
+        x='variable').set(ylabel=f'Частота использования в {sector}')
     plt.xticks(rotation=45)
     plt.show()
-industry_salary()
+
+
+def skill_sector(skill):
+    sns.barplot(
+        data=sector_agg[sector_agg.variable == skill],
+        y='value',
+        x='sector').set(ylabel=f'Частота использования {skill}')
+    plt.xticks(rotation=30)
+    plt.show()
