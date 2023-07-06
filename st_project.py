@@ -211,7 +211,7 @@ with st.echo(code_location='below'):
         sizes = wage_df[dist_param].value_counts().sort_values() / wage_df[dist_param].value_counts().sum() * 100
         sizes = sizes.where(sizes > 4.9, float('nan')).dropna()
         if sum(sizes) < 99.9:
-            sizes = sizes.append(pd.Series({'Other': round(100 - sizes.sum(), 2)}))
+            sizes['Other'] = round(100 - sizes.sum(), 2)
         if type_radio == 'TreeMap (squarify)':
 
             squarify.plot(sizes=sizes, label=sizes.index, value=sizes.round(1), alpha=0.8,
